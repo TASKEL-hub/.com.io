@@ -594,7 +594,11 @@ body.admin-mode .taskel-header {
   background: #F5F7FA;
   border-radius: 10px;
 }
-</style>
+.taskel-header .taskel-logo {
+  width: 100px !important;
+  height: 100px !important;
+  object-fit: contain;
+}</style>
 </head>
 
 <body>
@@ -1272,11 +1276,31 @@ document.body.classList.toggle("admin-mode",isAdmin);
 }
 
 /* OUTILS MEMBRE */
-function copyReferral(){
- const x=el("myLink");
- x.select();
- document.execCommand("copy");
- msg("Lien copié.");
+
+async function copyReferral(){
+  const {data,error}=await db
+    .from("deposits")
+    .select("id")
+    .eq("user_id",user.id)
+    .eq("status","approved")
+    .limit(1);
+
+  if(error) return msg(error.message);
+
+  if(!data || data.length===0){
+    return msg("Tu dois avoir un investissement approuvé pour utiliser ton lien de parrainage.");
+  }
+
+  const x=el("myLink");
+
+  try {
+    await navigator.clipboard.writeText(x.value);
+  } catch(e) {
+    x.select();
+    document.execCommand("copy");
+  }
+
+  msg("Lien de parrainage copié.");
 }
 
 async function loadMemberHome(){
@@ -1310,7 +1334,29 @@ async function loadMemberHome(){
  const {data:p}=await db.from("profiles")
   .select("referral_code").eq("id",user.id).single();
 
- el("myLink").value=location.origin+location.pathname+"?ref="+(p?.referral_code||"");
+const {data:approvedDeposits,error:depositError}=await db
+  .from("deposits")
+  .select("id")
+  .eq("user_id",user.id)
+  .eq("status","approved")
+  .limit(1);
+
+if(depositError) return msg(depositError.message);
+
+const canRefer=(approvedDeposits||[]).length>0;
+
+const referralInput=el("myLink");
+referralInput.value=location.origin+location.pathname+"?ref="+(p?.referral_code||"");
+referralInput.style.pointerEvents=canRefer?"auto":"none";
+referralInput.style.opacity=canRefer?"1":"0.6";
+
+const referralButton=referralInput.nextElementSibling;
+if(referralButton){
+  referralButton.disabled=!canRefer;
+  referralButton.textContent=canRefer
+    ?"Copier mon lien"
+    :"Investis pour activer ton lien";
+}
 
  const {data:last}=await db.from("daily_clicks")
   .select("clicked_at,reward_amount")
