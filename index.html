@@ -1444,6 +1444,34 @@ async function submitDeposit(){
 
  if(planError)return msg("Erreur plan : "+planError.message);
 
+ // Vérifier si le compte possède déjà un dépôt approuvé
+ const {data:approved,error:approvedError}=await db
+  .from("deposits")
+  .select("id")
+  .eq("user_id",user.id)
+  .eq("status","approved")
+  .limit(1);
+
+ if(approvedError)return msg(approvedError.message);
+
+ if(approved && approved.length>0){
+  return msg("Ton compte possède déjà un investissement approuvé. Les quatre plans sont bloqués.");
+ }
+
+ // Vérifier si une demande est déjà en attente
+ const {data:pending,error:pendingError}=await db
+  .from("deposits")
+  .select("id")
+  .eq("user_id",user.id)
+  .eq("status","pending")
+  .limit(1);
+
+ if(pendingError)return msg(pendingError.message);
+
+ if(pending && pending.length>0){
+  return msg("Tu as déjà une demande de dépôt en attente.");
+ }
+
  const {data:method,error:methodError}=await db.from("payment_methods")
   .select("*").eq("id",method_id).single();
 
